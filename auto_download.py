@@ -74,21 +74,24 @@ def get_cpu_idle_value():
 def wget():
     global current_ip, last_hour
     while True:
-        time.sleep(1)
-        urls = open('res/soft.txt').readlines()
-        random.shuffle(urls)
-        if 'http' in urls[0]:
-            url = 'http' + urls[0].replace('\n', '').replace('\r\n', '').split('http')[-1]
-            localtime = time.localtime(time.time())
-            hour = int(time.strftime("%H", localtime))
+        try:
+            time.sleep(1)
+            urls = open('res/soft.txt').readlines()
+            random.shuffle(urls)
+            if 'http' in urls[0]:
+                url = 'http' + urls[0].replace('\n', '').replace('\r\n', '').split('http')[-1]
+                localtime = time.localtime(time.time())
+                hour = int(time.strftime("%H", localtime))
 
-            # 如果当前小时与上次的小时不同，选择一个新的随机IP
-            if hour != last_hour:
-                current_ip = random.choice(ip_list)
-                last_hour = hour
+                # 如果当前小时与上次的小时不同，选择一个新的随机IP
+                if hour != last_hour:
+                    current_ip = random.choice(ip_list)
+                    last_hour = hour
 
-            cmd = "wget  --bind-address=" + current_ip + " -q --user-agent='Mozilla/5.0' -O /dev/null '" + url + "'"
-            os.popen(cmd)
+                cmd = "wget  --bind-address=" + current_ip + " -q --user-agent='Mozilla/5.0' -O /dev/null '" + url + "'"
+                os.popen(cmd)
+        except Exception as e:
+            logging.error(f"wget下载失败：{e}")
 
 
 # 定期清理wget进程
@@ -134,15 +137,10 @@ if __name__ == '__main__':
     # 清理wget线程
     threading.Thread(target=kill_wget).start()
     threading.Thread(target=random_hosts_list).start()
+
     # 创建下载线程，所创建的线程数量根据机器性能决定
-    if get_cpu_idle_value() > 20:
-        for _ in range(100):
-            threading.Thread(target=wget).start()
-
-
-
-
-
-
-
-
+    created_threads = 0
+    while get_cpu_idle_value() > 15:
+        threading.Thread(target=wget).start()
+        created_threads += 1
+    logging.info(f"已创建{created_threads}个wget下载线程来进行持续下载")
