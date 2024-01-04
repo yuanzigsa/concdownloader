@@ -39,7 +39,7 @@ def put_file_to_server(filename, remote_path="/root/"):
 
 if __name__ == '__main__':
     # JSON文件路径
-    json_file_path = 'server_login_info.json'
+    json_file_path = '../../res/server_login_info.json'
     with open(json_file_path, 'r') as file:
         servers = json.load(file)
 
