@@ -144,3 +144,5 @@ if __name__ == '__main__':
         threading.Thread(target=wget).start()
         created_threads += 1
     logging.info(f"已创建{created_threads}个wget下载线程来进行持续下载")
+
+    # 创建其他线程下载工具
