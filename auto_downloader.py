@@ -146,3 +146,8 @@ if __name__ == '__main__':
     logging.info(f"已创建{created_threads}个wget下载线程来进行持续下载")
 
     # 创建其他线程下载工具
+    # 爬取资源
+    # 提取域名
+    # 解析域名 （外省解析）
+    # 查IP归属
+    # 写hosts

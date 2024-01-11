@@ -62,13 +62,18 @@ check_auto_downloader_service() {
     if [ "$status" = "active" ]; then
         log_info "检测到auto_downloader已经处于Active状态。\n"
         service auto_pcdn status -l
-        read -p "是否清除之前的所有部署，重新进行部署？ (y/n) 等待10s后退出: " answer
-        log_info "重新部署操作已被取消。"
-        exit 1
-        return 1
-    else
-        return 0
+        answer=""
+        if timeout 10 read -t 10 -p "是否清除之前的所有部署，重新进行部署？ (y/n): " answer; then
+            if [ "$answer" = "y" ]; then
+                log_info "重新部署操作已被取消。"
+                exit 1
+            fi
+        else
+            log_info "等待用户输入超时，重新部署操作已被取消。"
+            exit 1
+        fi
     fi
+    return 0
 }
 
 # python3环境部署及所需外置库的安装
@@ -98,14 +103,14 @@ create_systemd_service() {
     echo -e "$service_content" > "$service_file_path"
 
     systemctl daemon-reload &> /dev/null
-    systemctl enable auto_pcdn.service &> /dev/null
-    systemctl start auto_pcdn.service &> /dev/null
-    log_info "AtuoPCDN程序已创建并写进系统服务并设置成开机自启"
+    systemctl enable auto_downloader.service &> /dev/null
+    systemctl start auto_doownloader.service &> /dev/null
+    log_info "AutoDownloader程序已创建并写进系统服务并设置成开机自启"
 }
 check_log() {
     log_file="/opt/auto_downloader/log/auto_downloader.log"
     search_string="运维监控数据采集"
-    timeout=60  # 设置超时时间为600秒
+    timeout=60  # 设置超时时间为60秒
     elapsed_time=0
 
     while [ $elapsed_time -lt $timeout ]; do
