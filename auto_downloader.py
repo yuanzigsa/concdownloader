@@ -151,3 +151,6 @@ if __name__ == '__main__':
     # 解析域名 （外省解析）
     # 查IP归属
     # 写hosts
+    # ip =$(curl - s http: // myip.ipip.net)
+    # echo
+    # "My public IP address is: $ip"

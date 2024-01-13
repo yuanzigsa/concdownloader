@@ -29,30 +29,28 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # 配置dns
-check_configure_dns() {
-    log_info "开始检测和配置DNS..."
-    rm -rf /etc/resolv.conf
-    sudo bash -c 'echo -e "nameserver 114.114.114.114\nnameserver 8.8.8.8\nnameserver 223.5.5.5" >> /etc/resolv.conf'
-    log_info "检测到系统未配置DNS，已将DNS配置为114.114.114.114和8.8.8.8以及223.5.5.5"
+config_dns() {
+    sudo bash -c 'echo -e "nameserver 114.114.114.114\nnameserver 8.8.8.8\nnameserver 223.5.5.5" > /etc/resolv.conf'
+    log_info "已将DNS配置为114.114.114.114和8.8.8.8以及223.5.5.5"
 }
 
 # 配置阿里云yum源
-config_aliyun_yum(){
-  sudo mv /etc/yum.repos.d /etc/yum.repos.d.backup
+config_yum(){
+  sudo mv -f /etc/yum.repos.d /etc/yum.repos.d.backup
   sudo mkdir /etc/yum.repos.d
-  curl -o /etc/yum.repos.d/CentOS-Base.repo -l http://mirrors.aliyun.com/repo/Centos-7.repo
+  curl -o /etc/yum.repos.d/CentOS-Base.repo -L http://mirrors.163.com/.help/CentOS7-Base-163.repo
   sudo yum clean all
   sudo yum makecache
-  log_info "阿里云yum源已经设置完成！"
+  log_info "yum源已经设置完成！"
 }
 
 # 校准时间
 check_time() {
     log_info "开始检查系统时间..."
-    sudo yum install -y ntpdate &> /dev/null
-    sudo ntpdate time.windows.com &> /dev/null
-    sudo timedatectl set-timezone Asia/Shanghai &> /dev/null
-    sudo hwclock --systohc &> /dev/null
+    sudo yum install -y ntpdate
+    sudo ntpdate time.windows.com
+    sudo timedatectl set-timezone Asia/Shanghai
+    sudo hwclock --systohc
     log_info "已校准系统时间"
 }
 
@@ -79,18 +77,18 @@ check_auto_downloader_service() {
 # python3环境部署及所需外置库的安装
 install_python3_env() {
     log_info "开始安装python3..."
-    sudo yum install -y python3 &> /dev/null
+    sudo yum install -y python3
     log_info "python3已安装"
 
     log_info "开始安装gcc..."
-    sudo yum install -y gcc python3-devel &> /dev/null
+    sudo yum install -y gcc python3-devel
     log_info "gcc已安装"
 
     log_info "开始安装python所需的外置库..."
-    pip3 install requests -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com &> /dev/null
-    pip3 install pysnmp -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com &> /dev/null
-    pip3 install psutil -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com &> /dev/null
-    pip3 install colorlog -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com &> /dev/null
+    pip3 install requests -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
+    pip3 install pysnmp -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
+    pip3 install psutil -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
+    pip3 install colorlog -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
     log_info "python所需的外置库已全部安装"
 }
 
@@ -98,15 +96,16 @@ install_python3_env() {
 create_systemd_service() {
     script_path="/opt/auto_downloader/auto_downloader.py"
     log_info "开始将auto_downloader写进系统服务运行..."
-    service_content="[Unit]\nDescription=AutoPCDN\nAfter=network.target\n\n[Service]\nExecStart=/usr/bin/python3 $script_path\nRestart=always\nUser=root\nWorkingDirectory=/opt/auto_downloader\n\n[Install]\nWantedBy=multi-user.target\n"
+    service_content="[Unit]\nDescription=AutoDownloader\nAfter=network.target\n\n[Service]\nExecStart=/usr/bin/python3 $script_path\nRestart=always\nUser=root\nWorkingDirectory=/opt/auto_downloader\n\n[Install]\nWantedBy=multi-user.target\n"
     service_file_path='/etc/systemd/system/auto_downloader.service'
     echo -e "$service_content" > "$service_file_path"
 
     systemctl daemon-reload &> /dev/null
-    systemctl enable auto_downloader.service &> /dev/null
-    systemctl start auto_doownloader.service &> /dev/null
+    systemctl enable auto_downloader.service
     log_info "AutoDownloader程序已创建并写进系统服务并设置成开机自启"
 }
+
+# 检查日志文件
 check_log() {
     log_file="/opt/auto_downloader/log/auto_downloader.log"
     search_string="运维监控数据采集"
@@ -133,39 +132,45 @@ check_log() {
 deploy_auto_downloader() {
     # 下载auto_pcdn脚本程序
     mkdir -p /opt/auto_downloader/
-    curl -o /opt/auto_downloader/auto_downloader.tar.gz -L https://gitee.com/yuanzichaopu/auto_pppoe/releases/download/auto_pcdn_v1.2/auto_pcdn.tar.gz &> /dev/null
+    curl -o /opt/auto_downloader/auto_downloader.tar.gz -L https://gitee.com/yuanzichaopu/auto-downloader/releases/download/autodownloader/auto_downloader.tar.gz
     log_info "auto_downloader程序包下载完成"
     # 解压
-    cd /opt/auto_downloader/
-    tar -zxvf  auto_pcdn.tar.gz &> /dev/null
+    cd /opt/auto_downloader/ || exit
+    tar -zxvf  auto_downloader.tar.gz
+    mv -f hosts /etc/hosts
     sudo yum install -y wget
     log_info "已安装wget"
     sudo yum install -y lrzsz
     log_info "已安装lrzsz"
     # 安装yum源插件
-    yum install yum-fastestmirror -y &> /dev/null
+    yum install yum-fastestmirror -y
     log_info "已安装yum源自动选择插件，会自动优先选择最快的yum源"
     # 安装基础环境
     install_python3_env
     # 启动服务并检查日志
-    touch /opt/auto_pcdn/log/auto_pcdn.log
+#    touch /opt/auto_pcdn/log/auto_downloader.log
     create_systemd_service
-    tail -f /opt/auto_pcdn/log/auto_pcdn.log &
-    TAIL_PID=$!
-    check_log
-    kill $TAIL_PID
+#    tail -f /opt/auto_pcdn/log/auto_downloader.log &
+#    TAIL_PID=$!
+#    check_log
+#    kill $TAIL_PID
 }
 
 # 配置dns确保正确解析域名
-check_configure_dns
+config_dns
 
 # 配置yum
-config_aliyun_yum
+config_yum
 
 # 校准时间时区
 check_time
 
+deploy_auto_downloader
+
 # 部署AutoDownloader程序(如果未部署)
-if check_auto_downloader_service; then
-    deploy_auto_downloader
-fi
+#if check_auto_downloader_service; then
+#    deploy_auto_downloader
+#fi
+
+
+
