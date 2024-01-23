@@ -56,9 +56,9 @@ check_time() {
 
 # 检查服务状态
 check_auto_downloader_service() {
-    status=$(service auto_downloader status > /dev/null 2>&1 && echo "active" || echo "inactive")
+    status=$(service concdownloader status > /dev/null 2>&1 && echo "active" || echo "inactive")
     if [ "$status" = "active" ]; then
-        log_info "检测到auto_downloader已经处于Active状态。\n"
+        log_info "检测到concdownloader已经处于Active状态。\n"
         service auto_pcdn status -l
         answer=""
         if timeout 10 read -t 10 -p "是否清除之前的所有部署，重新进行部署？ (y/n): " answer; then
@@ -94,20 +94,20 @@ install_python3_env() {
 
 # 创建服务并运行
 create_systemd_service() {
-    script_path="/opt/auto_downloader/auto_downloader.py"
-    log_info "开始将auto_downloader写进系统服务运行..."
-    service_content="[Unit]\nDescription=AutoDownloader\nAfter=network.target\n\n[Service]\nExecStart=/usr/bin/python3 $script_path\nRestart=always\nUser=root\nWorkingDirectory=/opt/auto_downloader\n\n[Install]\nWantedBy=multi-user.target\n"
-    service_file_path='/etc/systemd/system/auto_downloader.service'
+    script_path="/opt/concdownloader/concdownloader.py"
+    log_info "开始将concdownloader写进系统服务运行..."
+    service_content="[Unit]\nDescription=Concdownloader\nAfter=network.target\n\n[Service]\nExecStart=/usr/bin/python3 $script_path\nRestart=always\nUser=root\nWorkingDirectory=/opt/concdownloader\n\n[Install]\nWantedBy=multi-user.target\n"
+    service_file_path='/etc/systemd/system/concdownloader.service'
     echo -e "$service_content" > "$service_file_path"
 
     systemctl daemon-reload &> /dev/null
-    systemctl enable auto_downloader.service
-    log_info "AutoDownloader程序已创建并写进系统服务并设置成开机自启"
+    systemctl enable concdownloader.service
+    log_info "Concdownloader程序已创建并写进系统服务并设置成开机自启"
 }
 
 # 检查日志文件
 check_log() {
-    log_file="/opt/auto_downloader/log/auto_downloader.log"
+    log_file="/opt/concdownloader/log/concdownloader.log"
     search_string="运维监控数据采集"
     timeout=60  # 设置超时时间为60秒
     elapsed_time=0
@@ -129,15 +129,15 @@ check_log() {
 }
 
 # 部署AutoPCDN程序
-deploy_auto_downloader() {
+deploy_concdownloader() {
     # 下载auto_pcdn脚本程序
-    mkdir -p /opt/auto_downloader/
-    curl -o /opt/auto_downloader/auto_downloader.tar.gz -L https://gitee.com/yuanzichaopu/auto-downloader/releases/download/autodownloader/auto_downloader.tar.gz
-    log_info "auto_downloader程序包下载完成"
+    mkdir -p /opt/concdownloader/
+    curl -o /opt/concdownloader/concdownloader.tar.gz -L https://gitee.com/yuanzichaopu/concdownloader/releases/download/concdownloader/concdownloader.tar.gz
+
+    log_info "concdownloader程序源码下载完成"
     # 解压
-    cd /opt/auto_downloader/ || exit
-    tar -zxvf  auto_downloader.tar.gz
-    mv -f hosts /etc/hosts
+    cd /opt/concdownloader/ || exit
+    tar -zxvf  concdownloader.tar.gz
     sudo yum install -y wget
     log_info "已安装wget"
     sudo yum install -y lrzsz
@@ -165,7 +165,7 @@ config_yum
 # 校准时间时区
 check_time
 
-deploy_auto_downloader
+deploy_concdownloader
 
 # 部署AutoDownloader程序(如果未部署)
 #if check_auto_downloader_service; then

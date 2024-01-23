@@ -4,35 +4,34 @@ import random
 import psutil
 import logging
 import threading
-from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 
 # 配置日志以方便维护
 log_directory = 'log'
 if not os.path.exists(log_directory):
     os.makedirs(log_directory)
-log_file_path = os.path.join(log_directory, 'auto_downloader.log')
+log_file_path = os.path.join(log_directory, 'concdownloader.log')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 file_handler = TimedRotatingFileHandler(filename=log_file_path, when='midnight', interval=1, backupCount=30)  # 日志文件按天滚动，保留时长为30天
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 logging.getLogger().addHandler(file_handler)  # 将Handler添加到Logger中
 
-# Time : 2024/1/4
+# Time : 2024/1/23
 # Author : yuanzi
 
 
 # 支持单IP以及多IP自动识别按小时进行轮询下载
-logo = f"""开始启动AutoDownloader程序...\n
-     ██               ██            ███████                                 ██                         ██               
-    ████             ░██           ░██░░░░██                               ░██                        ░██               
-   ██░░██   ██   ██ ██████  ██████ ░██    ░██  ██████  ███     ██ ███████  ░██  ██████   ██████       ░██  █████  ██████
-  ██  ░░██ ░██  ░██░░░██░  ██░░░░██░██    ░██ ██░░░░██░░██  █ ░██░░██░░░██ ░██ ██░░░░██ ░░░░░░██   ██████ ██░░░██░░██░░█
- ██████████░██  ░██  ░██  ░██   ░██░██    ░██░██   ░██ ░██ ███░██ ░██  ░██ ░██░██   ░██  ███████  ██░░░██░███████ ░██ ░ 
-░██░░░░░░██░██  ░██  ░██  ░██   ░██░██    ██ ░██   ░██ ░████░████ ░██  ░██ ░██░██   ░██ ██░░░░██ ░██  ░██░██░░░░  ░██   
-░██     ░██░░██████  ░░██ ░░██████ ░███████  ░░██████  ███░ ░░░██ ███  ░██ ███░░██████ ░░████████░░██████░░██████░███   
-░░      ░░  ░░░░░░    ░░   ░░░░░░  ░░░░░░░    ░░░░░░  ░░░    ░░░ ░░░   ░░ ░░░  ░░░░░░   ░░░░░░░░  ░░░░░░  ░░░░░░ ░░░    
+logo = f"""开始启动Concdownloader程序...\n
+   ██████                                 ██                               ██                         ██               
+  ██░░░░██                               ░██                              ░██                        ░██               
+ ██    ░░   ██████  ███████   █████      ░██  ██████  ███     ██ ███████  ░██  ██████   ██████       ░██  █████  ██████
+░██        ██░░░░██░░██░░░██ ██░░░██  ██████ ██░░░░██░░██  █ ░██░░██░░░██ ░██ ██░░░░██ ░░░░░░██   ██████ ██░░░██░░██░░█
+░██       ░██   ░██ ░██  ░██░██  ░░  ██░░░██░██   ░██ ░██ ███░██ ░██  ░██ ░██░██   ░██  ███████  ██░░░██░███████ ░██ ░ 
+░░██    ██░██   ░██ ░██  ░██░██   ██░██  ░██░██   ░██ ░████░████ ░██  ░██ ░██░██   ░██ ██░░░░██ ░██  ░██░██░░░░  ░██   
+ ░░██████ ░░██████  ███  ░██░░█████ ░░██████░░██████  ███░ ░░░██ ███  ░██ ███░░██████ ░░████████░░██████░░██████░███   
+  ░░░░░░   ░░░░░░  ░░░   ░░  ░░░░░   ░░░░░░  ░░░░░░  ░░░    ░░░ ░░░   ░░ ░░░  ░░░░░░   ░░░░░░░░  ░░░░░░  ░░░░░░ ░░░    
 【程序版本】：v1.0
-【更新时间】：2024/1/4
+【更新时间】：2024/1/23
 【当前路径】：{os.getcwd()}
 """
 
@@ -70,24 +69,31 @@ def get_cpu_idle_value():
     return idle_value
 
 
+# 获取下载
+def random_ip_pool(ip_pool, last_hour):
+    localtime = time.localtime(time.time())
+    hour = int(time.strftime("%H", localtime))
+    if hour != last_hour:
+        ip_pool = random.sample(ip_list, 5)
+        return ip_pool, hour
+    else:
+        return ip_pool, last_hour
+
+
 # wget下载
 def wget():
     global current_ip, last_hour
+    ip_pool = None
     while True:
         try:
             time.sleep(1)
-            urls = open('res/soft.txt').readlines()
+            urls = open('res/download_url.txt').readlines()
             random.shuffle(urls)
             if 'http' in urls[0]:
                 url = 'http' + urls[0].replace('\n', '').replace('\r\n', '').split('http')[-1]
-                localtime = time.localtime(time.time())
-                hour = int(time.strftime("%H", localtime))
-
-                # 如果当前小时与上次的小时不同，选择一个新的随机IP
-                if hour != last_hour:
-                    current_ip = random.choice(ip_list)
-                    last_hour = hour
-
+                # 如果当前小时与上次的小时不同，生成新的随机ip池
+                ip_pool, last_hour = random_ip_pool(ip_pool,last_hour)
+                current_ip = random.choice(ip_pool)
                 cmd = "wget  --bind-address=" + current_ip + " -q --user-agent='Mozilla/5.0' -O /dev/null '" + url + "'"
                 os.popen(cmd)
         except Exception as e:
@@ -127,7 +133,6 @@ def random_hosts_list():
 
 if __name__ == '__main__':
     # 限制python进程的cpu占用率
-
     # 启动程序
     logging.info(logo)
     current_ip = None
@@ -140,17 +145,10 @@ if __name__ == '__main__':
 
     # 创建下载线程，所创建的线程数量根据机器性能决定
     created_threads = 0
-    while get_cpu_idle_value() > 15:
+    while get_cpu_idle_value() > 30:
         threading.Thread(target=wget).start()
         created_threads += 1
     logging.info(f"已创建{created_threads}个wget下载线程来进行持续下载")
 
+
     # 创建其他线程下载工具
-    # 爬取资源
-    # 提取域名
-    # 解析域名 （外省解析）
-    # 查IP归属
-    # 写hosts
-    # ip =$(curl - s http: // myip.ipip.net)
-    # echo
-    # "My public IP address is: $ip"

@@ -1,9 +1,11 @@
-import random
 
+def check():
+    if a == 1:
+        return True
 
-ip_list = [1]
+# 或者
+a = 2
+aa = 100
 
-
-a = random.choice(ip_list)
-
-print(a)
+aa = check()
+print(aa)
