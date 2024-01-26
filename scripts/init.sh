@@ -40,7 +40,7 @@ config_yum(){
   sudo mkdir /etc/yum.repos.d
   curl -o /etc/yum.repos.d/CentOS-Base.repo -L http://mirrors.163.com/.help/CentOS7-Base-163.repo
   sudo yum clean all
-  sudo yum makecache
+#  sudo yum makecache
   log_info "yum源已经设置完成！"
 }
 
@@ -83,6 +83,10 @@ install_python3_env() {
     log_info "开始安装gcc..."
     sudo yum install -y gcc python3-devel
     log_info "gcc已安装"
+
+    log_info "开始安装rsync..."
+    yum install -y rsync
+    log_info "rsync已安装"
 
     log_info "开始安装python所需的外置库..."
     pip3 install requests -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com

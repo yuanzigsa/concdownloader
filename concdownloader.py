@@ -3,6 +3,7 @@ import time
 import random
 import psutil
 import logging
+import requests
 import threading
 from logging.handlers import TimedRotatingFileHandler
 
@@ -31,7 +32,7 @@ logo = f"""开始启动Concdownloader程序...\n
  ░░██████ ░░██████  ███  ░██░░█████ ░░██████░░██████  ███░ ░░░██ ███  ░██ ███░░██████ ░░████████░░██████░░██████░███   
   ░░░░░░   ░░░░░░  ░░░   ░░  ░░░░░   ░░░░░░  ░░░░░░  ░░░    ░░░ ░░░   ░░ ░░░  ░░░░░░   ░░░░░░░░  ░░░░░░  ░░░░░░ ░░░    
 【程序版本】：v1.0
-【更新时间】：2024/1/23
+【更新时间】：2024/1/26
 【当前路径】：{os.getcwd()}
 """
 
@@ -69,6 +70,44 @@ def get_cpu_idle_value():
     return idle_value
 
 
+# 检测url可用性
+def urls_check():
+    def url_check(url):
+        result = requests.get(url, stream=True)
+        if result.status_code == 200:
+            # 文件总大小
+            # total_size = int(result.headers.get('Content-Length', 0))
+            # mb_size = total_size / 1024 / 1024
+            # mb_size = round(mb_size, 2)
+            # print(f"文件总大小: {mb_size}MB")
+            return url
+        else:
+            logging.warning("失效url（错误码:{result.status_code}）：{url} ")
+
+    def get_urls():
+        urls = []
+        with open('res/download_url.txt', 'r') as f:
+            for url in f.readlines():
+                if "http" in url:
+                    urls.append(url.strip())
+        return urls
+
+    def start_check(urls):
+        with open('res/download_url.txt', 'w') as f:
+            for url in urls:
+                vaild_url = url_check(url)
+                if vaild_url:
+                    f.writelines(vaild_url + '\n')
+
+    urls = get_urls()
+    logging.info(f"当前url数量: {len(urls)}")
+    # start_check(urls)
+    urls = get_urls()
+    logging.info(f"经检测有效url数量: {len(urls)}")
+    with open('url_vaild.info', 'w') as f:
+        f.write(f"当前可用url数量: {len(urls)}\n")
+
+
 # 获取下载
 def random_ip_pool(ip_pool, last_hour):
     localtime = time.localtime(time.time())
@@ -83,7 +122,7 @@ def random_ip_pool(ip_pool, last_hour):
 # wget下载
 def wget():
     global current_ip, last_hour
-    ip_pool = None
+    ip_pool = ip_list
     while True:
         try:
             time.sleep(1)
@@ -92,7 +131,8 @@ def wget():
             if 'http' in urls[0]:
                 url = 'http' + urls[0].replace('\n', '').replace('\r\n', '').split('http')[-1]
                 # 如果当前小时与上次的小时不同，生成新的随机ip池
-                ip_pool, last_hour = random_ip_pool(ip_pool,last_hour)
+                if len(ip_list) >= 5:
+                    ip_pool, last_hour = random_ip_pool(ip_pool,last_hour)
                 current_ip = random.choice(ip_pool)
                 cmd = "wget  --bind-address=" + current_ip + " -q --user-agent='Mozilla/5.0' -O /dev/null '" + url + "'"
                 os.popen(cmd)
@@ -126,9 +166,22 @@ def random_hosts_list():
             random_hosts()
             logging.info("随机排列hosts列表成功")
         except Exception as e:
-            logging.info(f"出错: {e}")
+            logging.info(f"随机hosts列表时发生错误: {e}")
 
         time.sleep(interval)
+
+
+# 检测当前url可用性
+def urls_vaild_check():
+    interval = 36000
+    while True:
+        try:
+            urls_check()
+            logging.info("url可用性检测完成")
+        except Exception as e:
+            logging.info(f"url可用性检测时发生错误: {e}")
+        time.sleep(interval)
+
 
 
 if __name__ == '__main__':
@@ -141,14 +194,20 @@ if __name__ == '__main__':
     ip_list = get_ip_addresses()
     # 清理wget线程
     threading.Thread(target=kill_wget).start()
+    logging.info(f"====================wget清理线程：已启动！====================")
     threading.Thread(target=random_hosts_list).start()
+    logging.info(f"====================随机hosts线程：已启动！===================")
+    threading.Thread(target=urls_vaild_check).start()
+    logging.info(f"==================url可用性检测线程：已启动！==================")
 
-    # 创建下载线程，所创建的线程数量根据机器性能决定
-    created_threads = 0
-    while get_cpu_idle_value() > 30:
+    create_threads = 200
+    for _ in range(200):
         threading.Thread(target=wget).start()
-        created_threads += 1
-    logging.info(f"已创建{created_threads}个wget下载线程来进行持续下载")
-
-
+    logging.info(f"已创建{create_threads}个wget下载线程来进行持续下载")
+    # 创建下载线程，所创建的线程数量根据机器性能决定
+    # created_threads = 0
+    # while get_cpu_idle_value() > 30:
+    #     threading.Thread(target=wget).start()
+    #     created_threads += 1
+    # logging.info(f"已创建{created_threads}个wget下载线程来进行持续下载")
     # 创建其他线程下载工具
