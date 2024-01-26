@@ -2,7 +2,7 @@
 #===============================================================================
 # Date：Jan. 11th, 2024
 # Author : yuanzi
-# Description: 初始化系统，提供auto_downloader运行环境
+# Description: 初始化系统，提供concdownloader运行环境
 #===============================================================================
 
 # 定义日志函数
@@ -88,6 +88,10 @@ install_python3_env() {
     yum install -y rsync
     log_info "rsync已安装"
 
+    log_info "开始安装sshpass..."
+    sudo yum install sshpass -y
+    log_info "sshpass已安装"
+
     log_info "开始安装python所需的外置库..."
     pip3 install requests -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
     pip3 install pysnmp -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
@@ -160,16 +164,19 @@ deploy_concdownloader() {
 #    kill $TAIL_PID
 }
 
-# 配置dns确保正确解析域名
-config_dns
+## 配置dns确保正确解析域名
+#config_dns
+#
+## 配置yum
+#config_yum
+#
+## 校准时间时区
+#check_time
+#
+#deploy_concdownloader
 
-# 配置yum
-config_yum
-
-# 校准时间时区
-check_time
-
-deploy_concdownloader
+service concdownloader status -l
+log_info "===============concdownloader部署完成！==================="
 
 # 部署AutoDownloader程序(如果未部署)
 #if check_auto_downloader_service; then

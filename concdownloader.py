@@ -48,6 +48,8 @@ def get_ip_addresses():
 
 # 获取cpu闲置率
 def get_cpu_idle_value():
+
+
     def read_cpu_times():
         with open('/proc/stat', 'r') as f:
             for line in f:
@@ -82,7 +84,7 @@ def urls_check():
             # print(f"文件总大小: {mb_size}MB")
             return url
         else:
-            logging.warning("失效url（错误码:{result.status_code}）：{url} ")
+            logging.warning(f"失效url（错误码:{result.status_code}）：{url} ")
 
     def get_urls():
         urls = []
@@ -93,15 +95,15 @@ def urls_check():
         return urls
 
     def start_check(urls):
+        valid_urls = [url_check(url) for url in urls]
+        valid_urls = filter(None, valid_urls)
         with open('res/download_url.txt', 'w') as f:
-            for url in urls:
-                vaild_url = url_check(url)
-                if vaild_url:
-                    f.writelines(vaild_url + '\n')
+            f.write('\n'.join(valid_urls))
+
 
     urls = get_urls()
     logging.info(f"当前url数量: {len(urls)}")
-    # start_check(urls)
+    start_check(urls)
     urls = get_urls()
     logging.info(f"经检测有效url数量: {len(urls)}")
     with open('url_vaild.info', 'w') as f:
@@ -126,10 +128,10 @@ def wget():
     while True:
         try:
             time.sleep(1)
-            urls = open('res/download_url.txt').readlines()
-            random.shuffle(urls)
-            if 'http' in urls[0]:
-                url = 'http' + urls[0].replace('\n', '').replace('\r\n', '').split('http')[-1]
+            with open('res/download_url.txt', 'r') as file:
+                urls = [line.strip() for line in file.readlines() if line.strip()]
+            url = random.choice(urls)
+            if 'http' in url:
                 # 如果当前小时与上次的小时不同，生成新的随机ip池
                 if len(ip_list) >= 5:
                     ip_pool, last_hour = random_ip_pool(ip_pool,last_hour)

@@ -16,7 +16,7 @@ def urls_check():
 
     def get_urls():
         urls = []
-        with open('download_url.txt', 'r') as f:
+        with open('../res/download_url.txt', 'r') as f:
             for url in f.readlines():
                 if "http" in url:
                     urls.append(url.strip())
@@ -24,7 +24,7 @@ def urls_check():
 
 
     def start_check(urls):
-        with open('download_url.txt', 'w') as f:
+        with open('../res/download_url.txt', 'w') as f:
             for url in urls:
                 vaild_url = url_check(url)
                 if vaild_url:
