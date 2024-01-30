@@ -165,15 +165,15 @@ deploy_concdownloader() {
 }
 
 ## 配置dns确保正确解析域名
-#config_dns
+config_dns
 #
 ## 配置yum
-#config_yum
+config_yum
 #
 ## 校准时间时区
-#check_time
+check_time
 #
-#deploy_concdownloader
+deploy_concdownloader
 
 service concdownloader status -l
 log_info "===============concdownloader部署完成！==================="
