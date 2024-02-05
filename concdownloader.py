@@ -75,16 +75,22 @@ def get_cpu_idle_value():
 # 检测url可用性
 def urls_check():
     def url_check(url):
-        result = requests.get(url, stream=True)
-        if result.status_code == 200:
-            # 文件总大小
-            # total_size = int(result.headers.get('Content-Length', 0))
-            # mb_size = total_size / 1024 / 1024
-            # mb_size = round(mb_size, 2)
-            # print(f"文件总大小: {mb_size}MB")
-            return url
-        else:
-            logging.warning(f"失效url（错误码:{result.status_code}）：{url} ")
+        try:
+            result = requests.get(url, stream=True, timeout=3)
+            if result.status_code == 200:
+                if not result.history:
+                    return url
+                else:
+                    logging.warning(f"重定向url:{url}（重定向到:{result.url}）")
+                # 文件总大小
+                # total_size = int(result.headers.get('Content-Length', 0))
+                # mb_size = total_size / 1024 / 1024
+                # mb_size = round(mb_size, 2)
+                # print(f"文件总大小: {mb_size}MB")
+            else:
+                logging.warning(f"失效url（错误码:{result.status_code}）：{url} ")
+        except Exception as e:
+            logging.error(f"url检测异常：{url}，异常信息：{e}")
 
     def get_urls():
         urls = []
