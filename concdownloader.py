@@ -1,5 +1,7 @@
 import os
+import sys
 import time
+import socket
 import random
 import psutil
 import logging
@@ -20,7 +22,6 @@ logging.getLogger().addHandler(file_handler)  # 将Handler添加到Logger中
 # Time : 2024/1/23
 # Author : yuanzi
 
-
 # 支持单IP以及多IP自动识别按小时进行轮询下载
 logo = f"""开始启动Concdownloader程序...\n
    ██████                                 ██                               ██                         ██               
@@ -36,19 +37,26 @@ logo = f"""开始启动Concdownloader程序...\n
 【当前路径】：{os.getcwd()}
 """
 
+
 # 获取本机在线IP
-def get_ip_addresses():
+def get_ip_addresses(type):
     ip_addresses = []
     for interface_name, interface_addresses in psutil.net_if_addrs().items():
         for address in interface_addresses:
-            if str(address.family) == 'AddressFamily.AF_INET' and address.address != '127.0.0.1':
-                ip_addresses.append(address.address)
+            if address.address != '127.0.0.1' and address.address != "::1":
+                if type == 'ipv4':
+                    if address.family == socket.AF_INET:
+                        ip_addresses.append(address.address)
+                elif type == 'ipv6':
+                    if address.family == psutil.AF_LINK:
+                        ip_addresses.append(address.address)
+                else:
+                    ip_addresses.append(address.address)
     return ip_addresses
 
 
 # 获取cpu闲置率
 def get_cpu_idle_value():
-
 
     def read_cpu_times():
         with open('/proc/stat', 'r') as f:
@@ -72,6 +80,15 @@ def get_cpu_idle_value():
     return idle_value
 
 
+def get_urls():
+    urls = []
+    with open('res/download_url.txt', 'r') as f:
+        for url in f.readlines():
+            if "http" in url:
+                urls.append(url.strip())
+    return urls
+
+
 # 检测url可用性
 def urls_check():
     def url_check(url):
@@ -82,23 +99,10 @@ def urls_check():
                     return url
                 else:
                     logging.warning(f"重定向url:{url}（重定向到:{result.url}）")
-                # 文件总大小
-                # total_size = int(result.headers.get('Content-Length', 0))
-                # mb_size = total_size / 1024 / 1024
-                # mb_size = round(mb_size, 2)
-                # print(f"文件总大小: {mb_size}MB")
             else:
                 logging.warning(f"失效url（错误码:{result.status_code}）：{url} ")
         except Exception as e:
             logging.error(f"url检测异常：{url}，异常信息：{e}")
-
-    def get_urls():
-        urls = []
-        with open('res/download_url.txt', 'r') as f:
-            for url in f.readlines():
-                if "http" in url:
-                    urls.append(url.strip())
-        return urls
 
     def start_check(urls):
         valid_urls = [url_check(url) for url in urls]
@@ -106,14 +110,35 @@ def urls_check():
         with open('res/download_url.txt', 'w') as f:
             f.write('\n'.join(valid_urls))
 
+    global url_list
+    aft_urls = get_urls()
+    logging.info(f"当前url数量: {len(aft_urls)}")
+    start_check(aft_urls)
+    bef_urls = get_urls()
 
-    urls = get_urls()
-    logging.info(f"当前url数量: {len(urls)}")
-    start_check(urls)
-    urls = get_urls()
-    logging.info(f"经检测有效url数量: {len(urls)}")
+    logging.info(f"经检测有效url数量: {len(bef_urls)}")
     with open('url_vaild.info', 'w') as f:
-        f.write(f"当前可用url数量: {len(urls)}\n")
+        f.write(f"当前可用url数量: {len(bef_urls)}\n")
+
+    if bef_urls != aft_urls:
+        url_list = chunk_list(url_list, len(ip_list))
+
+
+def chunk_list(lst, chunk_size):
+    avg_chunk_size = len(lst) // chunk_size
+    remainder = len(lst) % chunk_size
+
+    chunks = []
+    start = 0
+    for i in range(chunk_size):
+        if i < remainder:
+            end = start + avg_chunk_size + 1
+        else:
+            end = start + avg_chunk_size
+        chunks.append(lst[start:end])
+        start = end
+
+    return chunks
 
 
 # 获取下载
@@ -126,24 +151,37 @@ def random_ip_pool(ip_pool, last_hour):
     else:
         return ip_pool, last_hour
 
-
 # wget下载
+# def wget():
+#     global current_ip, last_hour
+#     ip_pool = ip_list
+#     while True:
+#         try:
+#             time.sleep(1)
+#             with open('res/download_url.txt', 'r') as file:
+#                 urls = [line.strip() for line in file.readlines() if line.strip()]
+#             url = random.choice(urls)
+#             if 'http' in url:
+#                 # 如果当前小时与上次的小时不同，生成新的随机ip池
+#                 if len(ip_list) >= 5:
+#                     ip_pool, last_hour = random_ip_pool(ip_pool,last_hour)
+#                 current_ip = random.choice(ip_pool)
+#                 cmd = "wget  --bind-address=" + current_ip + " -q --user-agent='Mozilla/5.0' -O /dev/null '" + url + "'"
+#                 os.popen(cmd)
+#         except Exception as e:
+#             logging.error(f"wget下载失败：{e}")
+
+
 def wget():
-    global current_ip, last_hour
-    ip_pool = ip_list
+    global current_ip, last_hour, url_list
+    x = 0
     while True:
         try:
             time.sleep(1)
-            with open('res/download_url.txt', 'r') as file:
-                urls = [line.strip() for line in file.readlines() if line.strip()]
-            url = random.choice(urls)
-            if 'http' in url:
-                # 如果当前小时与上次的小时不同，生成新的随机ip池
-                if len(ip_list) >= 5:
-                    ip_pool, last_hour = random_ip_pool(ip_pool,last_hour)
-                current_ip = random.choice(ip_pool)
-                cmd = "wget  --bind-address=" + current_ip + " -q --user-agent='Mozilla/5.0' -O /dev/null '" + url + "'"
-                os.popen(cmd)
+            ip = random.choice(ip_list)
+            url = random.choice(ip_url.get(ip))
+            cmd = "wget  --bind-address=" + ip + " -q --user-agent='Mozilla/5.0' -O /dev/null '" + url + "'"
+            os.popen(cmd)
         except Exception as e:
             logging.error(f"wget下载失败：{e}")
 
@@ -181,7 +219,7 @@ def random_hosts_list():
 
 # 检测当前url可用性
 def urls_vaild_check():
-    interval = 36000
+    interval = 86400
     while True:
         try:
             urls_check()
@@ -191,15 +229,47 @@ def urls_vaild_check():
         time.sleep(interval)
 
 
+# url按ip进行轮询
+def url_polling_by_ip():
+    global ip_url
+    interval = 600
+    i = 0
+    ip_url = {}
+    while True:
+        try:
+            for j in range(len(ip_list)):
+                ip_url[ip_list[j]] = url_list[(j + i) % len(url_list)]
+            logging.info("url按ip轮询成功")
+        except Exception as e:
+            logging.info(f"url按ip轮询时发生错误: {e}")
+        i += 1
+        time.sleep(interval)
+
 
 if __name__ == '__main__':
+
+    # 获取命令行参数
+    if len(sys.argv) < 2:
+        logging.warning("可以直接使用命令来进行指定下载类型，如：python3 concdownloader ipv6 或者 pyhon3 concdownloader all，默认ipv4下载")
+        downtype = 'ipv4'
+    else:
+        downtype = sys.argv[1]
+    if "ipv4" or "ipv6" or "all" in downtype:
+        downtype = downtype
+    else:
+        logging.info("输入无效，程序退出！")
+
     # 限制python进程的cpu占用率
     # 启动程序
     logging.info(logo)
     current_ip = None
     last_hour = None
+    ip_url = {}
     # 获取IP地址列表
-    ip_list = get_ip_addresses()
+    ip_list = get_ip_addresses(downtype)
+    urls = get_urls()
+    url_list = chunk_list(urls, len(ip_list))
+
     # 清理wget线程
     threading.Thread(target=kill_wget).start()
     logging.info(f"====================wget清理线程：已启动！====================")
@@ -207,11 +277,14 @@ if __name__ == '__main__':
     logging.info(f"====================随机hosts线程：已启动！===================")
     threading.Thread(target=urls_vaild_check).start()
     logging.info(f"==================url可用性检测线程：已启动！==================")
+    threading.Thread(target=url_polling_by_ip).start()
+    logging.info(f"====================url按ip轮询线程：已启动！===================")
 
     create_threads = 200
     for _ in range(200):
         threading.Thread(target=wget).start()
     logging.info(f"已创建{create_threads}个wget下载线程来进行持续下载")
+
     # 创建下载线程，所创建的线程数量根据机器性能决定
     # created_threads = 0
     # while get_cpu_idle_value() > 30:
@@ -219,3 +292,4 @@ if __name__ == '__main__':
     #     created_threads += 1
     # logging.info(f"已创建{created_threads}个wget下载线程来进行持续下载")
     # 创建其他线程下载工具
+
