@@ -36,38 +36,19 @@ modify_global_variable()
 print(x)  # 输出 20
 
 
-url_list = [['http://www.python.org', 'http:'], ['http://www.python.org', 'https:']]
-ip_list = ['192.168.3.11', '1.1.1.1']
 
-ip_url = {}
-x = 0
-for ip in ip_list:
-    ip_url[ip] = url_list[x]
-    x += 1
+import time
+from itertools import cycle
 
-print(ip_url)
-
-url_list = [['http://www.baidu.org', 'http:'], ['http://www.python.org', 'https:']]
-ip_list = ['192.168.3.11', '1.1.1.1']
-
-ip_url = {}
-for ip, url in zip(ip_list, url_list):
-    ip_url[ip] = url
-
-print(ip_url)
+import time
+from itertools import cycle
 
 url_list = [['tencent.com', 'taobao.com'], ['python.org', 'baidu.com'], ['alibaba.com', 'jd.com', 'abc.com']]
-ip_list = ['192.168.3.11', '1.1.1.1', '8.8.8.8']
-
-ip_url = {}
-i = 0
+url_cycle = cycle(url_list)
 
 while True:
-    for j in range(len(ip_list)):
-        ip_url[ip_list[j]] = url_list[(j + i) % len(url_list)]
-    time.sleep(2)  # 暂停 60 秒，即一分钟
-    i += 1
-
-    print(random.choice(ip_url.get('192.168.3.11')))
-
-
+    current_urls = next(url_cycle)
+    for url in current_urls:
+        print(url)
+    print("------------")
+    time.sleep(1)  # 暂停60秒
