@@ -1,3 +1,8 @@
+# @Author  : yuanzi
+# @Time    : 2024/9/14 14:18
+# Website: https://www.yzgsa.com
+# Copyright (c) <yuanzigsa@gmail.com>
+
 import os
 import json
 import time
@@ -9,6 +14,7 @@ import requests
 import threading
 from itertools import cycle
 from logging.handlers import TimedRotatingFileHandler
+
 
 # 配置日志以方便维护
 log_directory = 'log'
@@ -33,8 +39,8 @@ logo = f"""开始启动Concdownloader程序...\n
 ░░██    ██░██   ░██ ░██  ░██░██   ██░██  ░██░██   ░██ ░████░████ ░██  ░██ ░██░██   ░██ ██░░░░██ ░██  ░██░██░░░░  ░██   
  ░░██████ ░░██████  ███  ░██░░█████ ░░██████░░██████  ███░ ░░░██ ███  ░██ ███░░██████ ░░████████░░██████░░██████░███   
   ░░░░░░   ░░░░░░  ░░░   ░░  ░░░░░   ░░░░░░  ░░░░░░  ░░░    ░░░ ░░░   ░░ ░░░  ░░░░░░   ░░░░░░░░  ░░░░░░  ░░░░░░ ░░░    
-【程序版本】：v1.0
-【更新时间】：2024/1/26
+【程序版本】：v1.2
+【更新时间】：2024/9/14
 【当前路径】：{os.getcwd()}
 """
 
@@ -45,7 +51,7 @@ def read_config():
         config = json.load(f)
 
     value1 = config.get("download_type")
-    value2 = config.get("url_groups")
+    value2 = config.get("ips")
     value3 = config.get("polling_interval")
     value4 = config.get("download_threads")
 
@@ -57,7 +63,7 @@ def read_config():
         value2 = "3"
         value3 = "600"
         value4 = "200"
-        logging.error("url_groups、polling_interval或者download_threads配置有误，只允许整数！")
+        logging.error("ips、polling_interval或者download_threads配置有误，只允许整数！")
 
     return value1, value2, value3, value4
 
@@ -145,7 +151,7 @@ def urls_check():
         f.write(f"当前可用url数量: {len(bef_urls)}\n")
 
     if bef_urls != aft_urls:
-        url_list = chunk_list(url_list, url_groups)
+        url_list = aft_urls
 
 
 def chunk_list(lst, chunk_size):
@@ -175,35 +181,14 @@ def random_ip_pool(ip_pool, last_hour):
     else:
         return ip_pool, last_hour
 
+
 # wget下载
-# def wget():
-#     global current_ip, last_hour
-#     ip_pool = ip_list
-#     while True:
-#         try:
-#             time.sleep(1)
-#             with open('res/download_url.txt', 'r') as file:
-#                 urls = [line.strip() for line in file.readlines() if line.strip()]
-#             url = random.choice(urls)
-#             if 'http' in url:
-#                 # 如果当前小时与上次的小时不同，生成新的随机ip池
-#                 if len(ip_list) >= 5:
-#                     ip_pool, last_hour = random_ip_pool(ip_pool,last_hour)
-#                 current_ip = random.choice(ip_pool)
-#                 cmd = "wget  --bind-address=" + current_ip + " -q --user-agent='Mozilla/5.0' -O /dev/null '" + url + "'"
-#                 os.popen(cmd)
-#         except Exception as e:
-#             logging.error(f"wget下载失败：{e}")
-
-
 def wget():
-    global current_ip, last_hour, url_list
-    x = 0
     while True:
         try:
             time.sleep(1)
-            ip = random.choice(ip_list)
-            url = random.choice(url_pool)
+            ip = random.choice(ip_pool)
+            url = random.choice(urls)
             cmd = "wget  --bind-address=" + ip + " -q --user-agent='Mozilla/5.0' -O /dev/null '" + url + "'"
             os.popen(cmd)
         except Exception as e:
@@ -255,17 +240,18 @@ def urls_vaild_check():
 
 
 # url按ip进行轮询
-def url_polling():
-    global url_pool
+def ip_polling():
+    global ip_pool
     interval = polling_interval
-    url_cycle = cycle(url_list)
 
     while True:
         try:
-            url_pool = next(url_cycle)
-            logging.info(f"当前url分组数量:{len(url_pool)}条")
+            ip_pool = random.sample(ip_list, ips)
+            logging.info(f"本机IP总数量：{len(ip_list)}个")
+            logging.info(f"当前IP轮询数量：{ips}个")
+            logging.info(f"当前下载IP：{ip_pool}")
         except Exception as e:
-            logging.info(f"url分组轮询: {e}")
+            logging.info(f"IP轮询出错: {e}")
         time.sleep(interval)
 
 
@@ -275,32 +261,24 @@ if __name__ == '__main__':
     url_pool = []
 
     # 读取配置
-    downtype, url_groups, polling_interval, download_threads = read_config()
+    downtype, ips, polling_interval, download_threads = read_config()
 
     # 获取IP地址列表
     ip_list = get_ip_addresses(downtype)
+    ip_pool = random.sample(ip_list, ips)
+    # 获取url列表
     urls = get_urls()
-    url_list = chunk_list(urls, url_groups)
 
     # 清理wget线程
-    threading.Thread(target=url_polling).start()
-    logging.info(f"====================url分组轮询线程：已启动！===================")
+    threading.Thread(target=ip_polling).start()
+    logging.info(f"====================随机IP轮询线程：已启动！===================")
     threading.Thread(target=kill_wget).start()
-    logging.info(f"====================wget清理线程：已启动！====================")
+    logging.info(f"====================Wget清理线程：已启动！====================")
     threading.Thread(target=random_hosts_list).start()
     logging.info(f"====================随机hosts线程：已启动！===================")
     threading.Thread(target=urls_vaild_check).start()
-    logging.info(f"==================url可用性检测线程：已启动！==================")
+    logging.info(f"==================URL可用性检测线程：已启动！==================")
 
     for _ in range(download_threads):
         threading.Thread(target=wget).start()
     logging.info(f"已创建{download_threads}个wget下载线程来进行持续下载")
-
-    # 创建下载线程，所创建的线程数量根据机器性能决定
-    # created_threads = 0
-    # while get_cpu_idle_value() > 30:
-    #     threading.Thread(target=wget).start()
-    #     created_threads += 1
-    # logging.info(f"已创建{created_threads}个wget下载线程来进行持续下载")
-    # 创建其他线程下载工具
-

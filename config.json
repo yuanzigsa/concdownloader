@@ -1,6 +1,6 @@
 {
   "download_type": "ipv4",
-  "url_groups": 10,
+  "ips": 5,
   "polling_interval": 3600,
   "download_threads": 200
 }
