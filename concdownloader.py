@@ -1,5 +1,5 @@
 # @Author  : yuanzi
-# @Time    : 2024/9/14 14:18
+# @Time    : 2024/9/29 22:17
 # Website: https://www.yzgsa.com
 # Copyright (c) <yuanzigsa@gmail.com>
 
@@ -12,8 +12,8 @@ import psutil
 import logging
 import requests
 import threading
-from itertools import cycle
 from logging.handlers import TimedRotatingFileHandler
+from modules.speed_limit import apply_bandwidth_limit
 
 
 # 配置日志以方便维护
@@ -26,8 +26,6 @@ file_handler = TimedRotatingFileHandler(filename=log_file_path, when='midnight',
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 logging.getLogger().addHandler(file_handler)  # 将Handler添加到Logger中
 
-# Time : 2024/5/7
-# Author : yuanzi
 
 # 支持单IP以及多IP自动识别按小时进行轮询下载
 logo = f"""开始启动Concdownloader程序...\n
@@ -54,6 +52,7 @@ def read_config():
     value2 = config.get("ips")
     value3 = config.get("polling_interval")
     value4 = config.get("download_threads")
+    value_list = config.get("speed_limit")
 
     if value1 != "ipv4" and value1 != "ipv6" and value1 != "all":
         logging.error("config.json配置文件中下载类型有误，仅允许ipv4、ipv6或者all，请检查！")
@@ -65,7 +64,7 @@ def read_config():
         value4 = "200"
         logging.error("ips、polling_interval或者download_threads配置有误，只允许整数！")
 
-    return value1, value2, value3, value4
+    return value1, value2, value3, value4, value_list
 
 
 # 获取本机在线IP
@@ -255,13 +254,31 @@ def ip_polling():
         time.sleep(interval)
 
 
+# 按照时间段进行限速
+def speed_limit():
+    interval = 60
+    time.sleep(10)
+    with open('speed_limit.info', 'w') as file:
+        info = json.load(file)
+        speed_limit_info = [{json.dumps(value): False} for value in info]
+        json.dump(speed_limit_info, file, indent=4)
+
+    while True:
+        try:
+            apply_bandwidth_limit(speed_limit_list)
+            logging.info("限速成功")
+        except Exception as e:
+            logging.info(f"限速出错: {e}")
+        time.sleep(interval)
+
+
 if __name__ == '__main__':
     # 启动程序
     logging.info(logo)
     url_pool = []
 
     # 读取配置
-    downtype, ips, polling_interval, download_threads = read_config()
+    downtype, ips, polling_interval, download_threads, speed_limit_list = read_config()
 
     # 获取IP地址列表
     ip_list = get_ip_addresses(downtype)
@@ -276,6 +293,8 @@ if __name__ == '__main__':
     logging.info(f"====================Wget清理线程：已启动！====================")
     threading.Thread(target=random_hosts_list).start()
     logging.info(f"====================随机hosts线程：已启动！===================")
+    threading.Thread(target=speed_limit).start()
+    logging.info(f"====================分时段下载限速线程：已启动！===================")
     threading.Thread(target=urls_vaild_check).start()
     logging.info(f"==================URL可用性检测线程：已启动！==================")
 
