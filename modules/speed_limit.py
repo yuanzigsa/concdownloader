@@ -29,7 +29,7 @@ def get_real_time_download_rate(interface, interval=1):
 
         # 将字节转换为位（1 字节 = 8 位），再转换为 Mbps
         download_rate_mbps = (bytes_received * 8) / (interval * 1000000)  # Mbps
-        logging.info(f"当前实时下行速率：{download_rate_mbps}Mbps")
+        logging.info(f"{interface}当前实时下行速率：{download_rate_mbps}Mbps")
         return download_rate_mbps
 
     except Exception as e:
@@ -71,7 +71,7 @@ def apply_bandwidth_limit(speed_limit_list):
         speed_limit_info = json.load(file)
 
     # 遍历 speed_limit 中的每个时间段
-    for period in speed_limit_list:
+    for index, period in enumerate(speed_limit_list):
         for time_range, limit_factor in period.items():
             start_time_str, end_time_str = time_range.split('-')
             start_time = datetime.strptime(start_time_str, "%H:%M").time()
@@ -81,7 +81,7 @@ def apply_bandwidth_limit(speed_limit_list):
             if start_time <= current_time <= end_time:
                 for interface in interfaces:
                     real_max_rate = get_real_time_download_rate(interface)
-                    if real_max_rate and speed_limit_info[json.dumps(period)] is not True:
+                    if real_max_rate and speed_limit_info[index][json.dumps(period)] is not True:
                         limit_bandwidth(interface, int(real_max_rate * limit_factor))  # 限速为指定比例
                         speed_limit_info.append({json.dumps(period): True})
                 break

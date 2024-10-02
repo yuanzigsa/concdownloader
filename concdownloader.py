@@ -259,8 +259,7 @@ def speed_limit():
     interval = 60
     time.sleep(10)
     with open('speed_limit.info', 'w') as file:
-        info = json.load(file)
-        speed_limit_info = [{json.dumps(value): False} for value in info]
+        speed_limit_info = [{json.dumps(value): False} for value in speed_limit_list]
         json.dump(speed_limit_info, file, indent=4)
 
     while True:
