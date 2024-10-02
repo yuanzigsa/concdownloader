@@ -1,6 +1,6 @@
 #!/bin/bash
 #===============================================================================
-# Date：Jan. 11th, 2024
+# Date：Sep. 14th, 2024
 # Author : yuanzi
 # Description: 初始化系统，提供concdownloader运行环境
 #===============================================================================
@@ -93,10 +93,11 @@ install_python3_env() {
     log_info "sshpass已安装"
 
     log_info "开始安装python所需的外置库..."
-    pip3 install requests -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
-    pip3 install pysnmp -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
-    pip3 install psutil -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
-    pip3 install colorlog -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
+    /usr/bin/python3.6 -m pip install --upgrade pip --trusted-host mirrors.aliyun.com
+    pip3 install requests
+    pip3 install pysnmp
+    pip3 install psutil
+    pip3 install colorlog
     log_info "python所需的外置库已全部安装"
 }
 
@@ -140,7 +141,7 @@ check_log() {
 deploy_concdownloader() {
     # 下载auto_pcdn脚本程序
     mkdir -p /opt/concdownloader/
-    curl -o /opt/concdownloader/concdownloader.tar.gz -L https://gitee.com/yuanzichaopu/concdownloader/releases/download/concdownloader/concdownloader.tar.gz
+    curl -o /opt/concdownloader/concdownloader.tar.gz -L https://gitee.com/yzgsa/concdownloader/releases/download/concdownloader/concdownloader_v1.2.tar.gz
 
     log_info "concdownloader程序源码下载完成"
     # 解压
@@ -178,10 +179,6 @@ deploy_concdownloader
 service concdownloader status -l
 log_info "===============concdownloader部署完成！==================="
 
-# 部署AutoDownloader程序(如果未部署)
-#if check_auto_downloader_service; then
-#    deploy_auto_downloader
-#fi
 
 
 
