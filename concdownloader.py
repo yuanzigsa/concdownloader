@@ -257,7 +257,6 @@ def ip_polling():
 # 按照时间段进行限速
 def speed_limit():
     interval = 60
-    time.sleep(10)
     with open('speed_limit.info', 'w') as file:
         speed_limit_info = [{json.dumps(value): False} for value in speed_limit_list]
         json.dump(speed_limit_info, file, indent=4)
