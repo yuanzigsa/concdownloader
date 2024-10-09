@@ -10,6 +10,20 @@ from datetime import datetime
 import psutil
 
 
+# 获取接口的最大速度
+def get_interface_max_speed(interface):
+    try:
+        # 读取接口的最大速度信息
+        with open(f"/sys/class/net/{interface}/speed", "r") as f:
+            max_speed_mbps = int(f.read().strip())
+        logging.info(f"{interface}的最大速度：{max_speed_mbps} Mbps")
+        return max_speed_mbps
+
+    except Exception as e:
+        logging.error(f"获取最大速度失败: {e}")
+        return None
+
+
 # 获取接口实时下行速率
 def get_real_time_download_rate(interface, interval=1):
     # 删除现有的流量控制规则，避免影响测速准确性
@@ -42,8 +56,12 @@ def get_real_time_download_rate(interface, interval=1):
 
 
 # 通过tc命令添加限速规则 (kbit/s)
-def limit_bandwidth(interface, rate_mbps):
+def limit_bandwidth(interface, rate_mbps, relax=False):
     try:
+        subprocess.run(f"tc qdisc del dev {interface} root", shell=True, stderr=subprocess.DEVNULL)
+        if relax:
+            logging.info(f"已经对接口{interface}放开限速")
+            return
         # 添加限速规则，将带宽限制为 rate kbit/s
         rate_kbits = rate_mbps * 1000
         subprocess.run(
@@ -82,16 +100,16 @@ def apply_bandwidth_limit(speed_limit_list):
             if start_time <= current_time <= end_time:
                 for interface in interfaces:
                     if speed_limit_info[index][json.dumps(period)] is not True:
-                        real_max_rate = get_real_time_download_rate(interface)
-                        if real_max_rate or int(real_max_rate) == 0:
+                        max_rate = get_interface_max_speed(interface)
+                        if not max_rate or int(max_rate) == 0:
                             continue
-                        limit_bandwidth(interface, int(real_max_rate * limit_factor))  # 限速为指定比例
+                        limit_bandwidth(interface, int(max_rate * limit_factor))  # 限速为指定比例
                         speed_limit_info.append({json.dumps(period): True})
                 break
     else:
         # 如果不在任何限速时间段内，恢复全速
         for interface in interfaces:
-            limit_bandwidth(interface, get_real_time_download_rate(interface))  # 恢复全速
+            limit_bandwidth(interface, get_interface_max_speed(interface), relax=True)  # 恢复全速
 
     with open('speed_limit.info', 'w') as file:
         json.dump(speed_limit_info, file, indent=4)
