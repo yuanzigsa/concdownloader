@@ -16,9 +16,11 @@ def get_interface_max_speed(interface):
         # 读取接口的最大速度信息
         with open(f"/sys/class/net/{interface}/speed", "r") as f:
             max_speed_mbps = int(f.read().strip())
-        logging.info(f"{interface}的最大速度：{max_speed_mbps} Mbps")
-        return max_speed_mbps
-
+        if int(max_speed_mbps) <= 10:
+            return None
+        else:
+            logging.info(f"{interface}的最大速度：{max_speed_mbps}Mbps")
+            return max_speed_mbps
     except Exception as e:
         logging.error(f"获取最大速度失败: {e}")
         return None
@@ -56,19 +58,24 @@ def get_real_time_download_rate(interface, interval=1):
 
 
 # 通过tc命令添加限速规则 (kbit/s)
-def limit_bandwidth(interface, rate_mbps, relax=False):
+def limit_bandwidth(interface=None, rate_mbps=None, interfaces=None, relax=False):
     try:
-        subprocess.run(f"tc qdisc del dev {interface} root", shell=True, stderr=subprocess.DEVNULL)
         if relax:
-            logging.info(f"已经对接口{interface}放开限速")
+            for interface in interfaces:
+                command = f"tc qdisc del dev {interface} root"
+                subprocess.run(command, shell=True, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                logging.info(f"接口{interface}已解除限速")
             return
+
+        command = f"tc qdisc del dev {interface} root"
+        subprocess.run(command, shell=True, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # 添加限速规则，将带宽限制为 rate kbit/s
         rate_kbits = rate_mbps * 1000
-        subprocess.run(
-            f"tc qdisc add dev {interface} root tbf rate {rate_kbits}kbit burst 32kbit latency 400ms",
-            shell=True, check=True
-        )
-        logging.info(f"{interface} 限速已设置为 {rate_mbps} Mbps")
+        command = f"tc qdisc add dev {interface} root tbf rate {rate_kbits}kbit burst 32kbit latency 400ms"
+        #print(command)
+        result = subprocess.run(command, shell=True, check=True)
+        if result.returncode == 0:
+            logging.info(f"{interface} 限速已设置为 {rate_mbps}Mbps")
     except subprocess.CalledProcessError as e:
         logging.error(f"设置限速失败 on {interface}: {e}")
     except Exception as e:
@@ -81,6 +88,20 @@ def get_network_interfaces():
     return [iface for iface in interfaces if iface != "lo"]
 
 
+# 重置限速规则信息
+def record_speed_limit_info(speed_limit_list, speed_limit_info=None, skip_index=None, reset_all=False):
+    for index, period in enumerate(speed_limit_list):
+        if reset_all:
+            speed_limit_info[index][str(period)] = False
+        else:
+            if index != skip_index:
+                speed_limit_info[index][str(period)] = False
+            else:
+                speed_limit_info[index][str(period)] = True
+
+    return speed_limit_info
+
+
 # 定义限速策略，按时间段调整带宽
 def apply_bandwidth_limit(speed_limit_list):
     interfaces = get_network_interfaces()
@@ -90,6 +111,7 @@ def apply_bandwidth_limit(speed_limit_list):
         speed_limit_info = json.load(file)
 
     # 遍历 speed_limit 中的每个时间段
+    limit_set = False
     for index, period in enumerate(speed_limit_list):
         for time_range, limit_factor in period.items():
             start_time_str, end_time_str = time_range.split('-')
@@ -98,18 +120,20 @@ def apply_bandwidth_limit(speed_limit_list):
 
             # 如果当前时间在该时间段内，应用对应的限速
             if start_time <= current_time <= end_time:
-                for interface in interfaces:
-                    if speed_limit_info[index][json.dumps(period)] is not True:
+                limit_set = True
+                if speed_limit_info[index][str(period)] is not True:
+                    for interface in interfaces:
                         max_rate = get_interface_max_speed(interface)
-                        if not max_rate or int(max_rate) == 0:
+                        if not max_rate:
                             continue
                         limit_bandwidth(interface, int(max_rate * limit_factor))  # 限速为指定比例
-                        speed_limit_info.append({json.dumps(period): True})
+                        speed_limit_info = record_speed_limit_info(speed_limit_list, speed_limit_info, index)
+                        #print(speed_limit_info)
                 break
-    else:
-        # 如果不在任何限速时间段内，恢复全速
-        for interface in interfaces:
-            limit_bandwidth(interface, get_interface_max_speed(interface), relax=True)  # 恢复全速
-
+    # 不在任何时间区间内，解除限速
+    if not limit_set:
+        limit_bandwidth(interfaces=interfaces, relax=True)  # 限速为指定比例
+        speed_limit_info = record_speed_limit_info(speed_limit_list, reset_all=True)
+    #print(speed_limit_info)
     with open('speed_limit.info', 'w') as file:
-        json.dump(speed_limit_info, file, indent=4)
+        json.dump(speed_limit_info, file, indent=4, ensure_ascii=False)

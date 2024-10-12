@@ -258,15 +258,14 @@ def ip_polling():
 def speed_limit():
     interval = 60
     with open('speed_limit.info', 'w') as file:
-        speed_limit_info = [{json.dumps(value): False} for value in speed_limit_list]
-        json.dump(speed_limit_info, file, indent=4)
+        speed_limit_info = [{str(value): False} for value in speed_limit_list]
+        json.dump(speed_limit_info, file, indent=4, ensure_ascii=False)
 
     while True:
-        try:
-            apply_bandwidth_limit(speed_limit_list)
-            logging.info("限速成功")
-        except Exception as e:
-            logging.info(f"限速出错: {e}")
+        # try:
+        apply_bandwidth_limit(speed_limit_list)
+        # except Exception as e:
+        #     logging.info(f"限速出错: {e}")
         time.sleep(interval)
 
 
