@@ -19,7 +19,7 @@ def get_interface_max_speed(interface):
         if int(max_speed_mbps) <= 10:
             return None
         else:
-            logging.info(f"{interface}的最大速度：{max_speed_mbps}Mbps")
+
             return max_speed_mbps
     except Exception as e:
         logging.error(f"获取最大速度失败: {e}")
@@ -75,7 +75,7 @@ def limit_bandwidth(interface=None, rate_mbps=None, interfaces=None, relax=False
         subprocess.run(command1, shell=True, check=True)
         result = subprocess.run(command2, shell=True, check=True)
         if result.returncode == 0:
-            logging.info(f"{interface} 限速已设置为 {rate_mbps}Mbps")
+            logging.info(f"{interface}的最大速度为：{rate_mbps}Mbps 当前限速为: {rate_mbps}Mbps")
     except subprocess.CalledProcessError as e:
         logging.error(f"设置限速失败 on {interface}: {e}")
     except Exception as e:
@@ -126,7 +126,7 @@ def apply_bandwidth_limit(speed_limit_list):
                         max_rate = get_interface_max_speed(interface)
                         if not max_rate:
                             continue
-                        if max_rate == int(max_rate * limit_factor):
+                        if max_rate == int(max_rate * limit_factor) or int(max_rate) > 10000:
                             continue
                         limit_bandwidth(interface, int(max_rate * limit_factor))  # 限速为指定比例
                         speed_limit_info = record_speed_limit_info(speed_limit_list, speed_limit_info, index)
