@@ -62,18 +62,18 @@ def limit_bandwidth(interface=None, rate_mbps=None, interfaces=None, relax=False
     try:
         if relax:
             for interface in interfaces:
-                command = f"tc qdisc del dev {interface} root"
+                command = f"tc qdisc del dev {interface} ingress"
                 subprocess.run(command, shell=True, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 logging.info(f"接口{interface}已解除限速")
             return
 
-        command = f"tc qdisc del dev {interface} root"
+        command = f"tc qdisc del dev {interface} ingress"
         subprocess.run(command, shell=True, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # 添加限速规则，将带宽限制为 rate kbit/s
-        rate_kbits = rate_mbps * 1000
-        command = f"tc qdisc add dev {interface} root tbf rate {rate_kbits}kbit burst 32kbit latency 400ms"
-        #print(command)
-        result = subprocess.run(command, shell=True, check=True)
+        command1 = f"tc qdisc add dev {interface} handle ffff: ingress "
+        command2 = f"tc filter add dev {interface} parent ffff: protocol ip prio 50 u32 match ip src 0.0.0.0/0 police rate {rate_mbps}mbit burst 10k drop flowid :1"
+        subprocess.run(command1, shell=True, check=True)
+        result = subprocess.run(command2, shell=True, check=True)
         if result.returncode == 0:
             logging.info(f"{interface} 限速已设置为 {rate_mbps}Mbps")
     except subprocess.CalledProcessError as e:
@@ -126,9 +126,11 @@ def apply_bandwidth_limit(speed_limit_list):
                         max_rate = get_interface_max_speed(interface)
                         if not max_rate:
                             continue
+                        if max_rate == int(max_rate * limit_factor):
+                            continue
                         limit_bandwidth(interface, int(max_rate * limit_factor))  # 限速为指定比例
                         speed_limit_info = record_speed_limit_info(speed_limit_list, speed_limit_info, index)
-                        #print(speed_limit_info)
+                        # print(speed_limit_info)
                 break
     # 不在任何时间区间内，解除限速
     if not limit_set:
