@@ -14,6 +14,7 @@ import requests
 import threading
 from logging.handlers import TimedRotatingFileHandler
 from modules.speed_limit import apply_bandwidth_limit
+from modules.remove_speed_limit import remove_speed_limit
 
 
 # 配置日志以方便维护
@@ -282,6 +283,9 @@ if __name__ == '__main__':
     ip_pool = random.sample(ip_list, ips)
     # 获取url列表
     urls = get_urls()
+
+    # 清理可能遗留的tc限速
+    remove_speed_limit()
 
     # 清理wget线程
     threading.Thread(target=ip_polling).start()

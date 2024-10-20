@@ -62,18 +62,17 @@ def limit_bandwidth(interface=None, rate_mbps=None, interfaces=None, relax=False
     try:
         if relax:
             for interface in interfaces:
-                command = f"tc qdisc del dev {interface} ingress"
+                command = f"wondershaper -a {interface} -c"
                 subprocess.run(command, shell=True, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 logging.info(f"接口{interface}已解除限速")
             return
 
-        command = f"tc qdisc del dev {interface} ingress"
+        command = f"wondershaper -a {interface} -c"
         subprocess.run(command, shell=True, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # 添加限速规则，将带宽限制为 rate kbit/s
-        command1 = f"tc qdisc add dev {interface} handle ffff: ingress "
-        command2 = f"tc filter add dev {interface} parent ffff: protocol ip prio 50 u32 match ip src 0.0.0.0/0 police rate {rate_mbps}mbit burst 10k drop flowid :1"
-        subprocess.run(command1, shell=True, check=True)
-        result = subprocess.run(command2, shell=True, check=True)
+        rate_kbps = rate_mbps * 1000
+        command = f"wondershaper -a {interface} -d {rate_kbps}"
+        result = subprocess.run(command, shell=True, check=True)
         if result.returncode == 0:
             logging.info(f"{interface}的最大速度为：{rate_mbps}Mbps 当前限速为: {rate_mbps}Mbps")
     except subprocess.CalledProcessError as e:
