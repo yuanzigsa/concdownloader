@@ -133,8 +133,10 @@ def apply_bandwidth_limit(speed_limit_list):
                 break
     # 不在任何时间区间内，解除限速
     if not limit_set:
-        limit_bandwidth(interfaces=interfaces, relax=True)  # 限速为指定比例
-        speed_limit_info = record_speed_limit_info(speed_limit_list, reset_all=True)
-    #print(speed_limit_info)
+        logging.info(f"当前时间不在任何区间限速内，无需进行限速操作")
+        for index, period in enumerate(speed_limit_list):
+            if speed_limit_info[index][str(period)] is True:
+                limit_bandwidth(interfaces=interfaces, relax=True)  # 限速为指定比例
+                speed_limit_info = record_speed_limit_info(speed_limit_list, speed_limit_info, reset_all=True)
     with open('speed_limit.info', 'w') as file:
         json.dump(speed_limit_info, file, indent=4, ensure_ascii=False)
